@@ -1,0 +1,1270 @@
+
+sqlplus / as sysdba
+startup;
+
+ALTER PLUGGABLE DATABASE PDB1 OPEN READ WRITE;
+exit
+
+lsnrctl start
+sqlplus ghost/ghost@localhost:1521/pdb1
+
+SELECT table_name FROM all_tables WHERE owner = 'GHOST';
+
+
+-- FORMAoutput format --
+SET LINESIZE 200
+SET PAGESIZE 50
+SET COLSEP ' | '
+SET TRIMSPOOL ON
+SET NUMWIDTH 10
+SET HEADING ON
+
+
+------------------------------ ON TIMING --------------------------------------------
+TIME:
+SET TIMING ON;
+------
+------------------------------ CLEAR CACHE---------------------------------------------
+Limpia el buffer cache es una parte de la memoria que almacena bloques de datos leídos desde el disco.
+alter system flush buffer_cache; 
+---
+limpia shared pool es una parte de la memoria donde se almacenan los objetos de SQL, los resultados de las consultas y otros componentes
+alter system flush shared_pool;
+
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+
+---------------------------------------------------------------------------
+------------------------------------------------------------------------END
+
+--------------------------------------------------------------------------------
+----------------------- Query optimization INDEXES -----------------------------
+----------------------- Query optimization INDEXES -----------------------------
+----------------------- Query optimization INDEXES -----------------------------
+--------------------------------------------------------------------------------
+TABLES:
+
+CUSTOMER
+LINEITEM
+NATION
+ORDERS
+PART
+PARTSUPP
+REGION
+SUPPLIER
+
+SHOW INDEXES:
+
+select table_name, index_name, column_name from all_ind_columns where table_name = 'CUSTOMER';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'LINEITEM';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'NATION';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'ORDERS';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'PART';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'PARTSUPP';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'REGION';
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'SUPPLIER';
+
+---
+DROP INDEX index_name;
+---
+
+INDEXES:
+
+--------------------------------------------------------------------------------
+CUSTOMER
+
+select table_name, index_name, column_name from all_ind_columns where table_name = 'CUSTOMER';
+
+CUSTOMER CUSTOMER_PK C_CUSTKEY
+CREATE INDEX IDX_C_NATIONKEY ON CUSTOMER(C_NATIONKEY);
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+LINEITEM
+
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'LINEITEM';
+
+LINEITEM LINEITEM_PK L_ORDERKEY
+LINEITEM LINEITEM_PK L_LINENUMBER
+CREATE INDEX IDX_L_PARTKEY ON LINEITEM(L_PARTKEY);
+CREATE INDEX IDX_L_SUPPKEY ON LINEITEM(L_SUPPKEY);
+
+CREATE INDEX FILTERED_IDX_L_SHIPDATE ON LINEITEM(L_SHIPDATE) 
+WHERE L_SHIPDATE <= DATE '1998-09-02';
+
+CREATE INDEX IDX_L_RETURNFLAG_LNSTATUS ON LINEITEM(L_RETURNFLAG, L_LINESTATUS);
+
+CREATE INDEX IDX_L_DISCOUNT ON LINEITEM(L_DISCOUNT);
+CREATE INDEX IDX_L_QUANTITY ON LINEITEM(L_QUANTITY);
+
+
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+NATION
+
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'NATION';
+
+NATION NATION_PK N_NATIONKEY
+CREATE INDEX IDX_N_REGIONKEY ON NATION(N_REGIONKEY);
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+ORDERS
+
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'ORDERS';
+
+ORDERS ORDERS_PK O_ORDERKEY
+CREATE INDEX IDX_O_CUSTKEY ON ORDERS(O_CUSTKEY);
+CREATE INDEX IDX_O_ORDERDATE ON ORDERS(O_ORDERDATE);
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+PART
+
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'PART';
+
+PART PART_PK P_PARTKEY
+CREATE INDEX IDX_P_SIZE_TYPE ON PART(P_SIZE, P_TYPE);
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+PARTSUPP
+
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'PARTSUPP';
+
+PARTSUPP PARTSUPP_PK PS_PARTKEY
+PARTSUPP PARTSUPP_PK PS_SUPPKEY
+CREATE INDEX IDX_PS_PARTKEY ON PARTSUPP(PS_PARTKEY);
+CREATE INDEX IDX_PS_SUPPKEY ON PARTSUPP(PS_SUPPKEY);
+CREATE INDEX IDX_PS_SUPPLYCOST ON PARTSUPP(PS_SUPPLYCOST);
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+REGION
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'REGION';
+
+REGION SYS_C006378 NAME
+REGION NUM_UNIQUE NUM
+REGION REGION_PK R_REGIONKEY
+CREATE INDEX IDX_R_NAME ON REGION(R_NAME);
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+SUPPLIER
+select table_name, index_name, column_name from all_ind_columns WHERE table_name = 'SUPPLIER';
+
+SUPPLIER SUPPLIER_PK S_SUPPKEY
+CREATE INDEX IDX_S_SUPPKEY ON SUPPLIER(S_SUPPKEY);
+CREATE INDEX IDX_S_NATIONKEY ON SUPPLIER(S_NATIONKEY);
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----------------------------------------------------------------------------END
+
+
+----------------------------- ALTER PARALLEL -----------------------------
+----------------------------- ALTER PARALLEL -----------------------------
+----------------------------- ALTER PARALLEL -----------------------------
+
+SELECT table_name, degree FROM user_tables ORDER BY table_name;
+
+BEGIN
+  EXECUTE IMMEDIATE 'ALTER TABLE CUSTOMER PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE LINEITEM PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE NATION PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE ORDERS PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE PART PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE PARTSUPP PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE REGION PARALLEL 4';
+  EXECUTE IMMEDIATE 'ALTER TABLE SUPPLIER PARALLEL 4';
+END;
+/
+
+---------------------------------------------------------------------------
+------------------------------------------------------------------------END
+
+----------------------------- IN MEMORY -----------------------------------
+----------------------------- IN MEMORY -----------------------------------
+----------------------------- IN MEMORY -----------------------------------
+
+-- RAM Memory
+free -h
+
+-- Table size in G
+SELECT segment_name AS tabla, 
+       SUM(bytes)/(1024*1024*1024) AS tamanioG
+FROM user_segments
+WHERE segment_name IN ('CUSTOMER', 'LINEITEM', 'NATION', 'ORDERS', 'PART', 'PARTSUPP', 'REGION', 'SUPPLIER')
+GROUP BY segment_name;
+
+--- PROCESS ---
+ALTER SYSTEM SET SGA_TARGET = 7G SCOPE=SPFILE;
+ALTER SYSTEM SET INMEMORY_SIZE = 6G SCOPE=SPFILE;
+
+
+SHOW PARAMETER inmemory_size;
+SHOW PARAMETER sga_target;
+
+-- Tables --
+-- level priorities
+INMEMORY PRIORITY CRITICAL;
+INMEMORY PRIORITY HIGH;
+INMEMORY PRIORITY MEDIUM;
+INMEMORY PRIORITY LOW;
+
+ALTER TABLE lineitem INMEMORY;
+
+SELECT * FROM V$IM_SEGMENTS WHERE SEGMENT_NAME IN ('LINEITEM');
+
+--------
+ALTER TABLE CUSTOMER INMEMORY PRIORITY CRITICAL;
+SELECT * FROM V$IM_SEGMENTS WHERE SEGMENT_NAME IN ('CUSTOMER');
+
+ALTER TABLE PART INMEMORY PRIORITY CRITICAL;
+SELECT * FROM V$IM_SEGMENTS WHERE SEGMENT_NAME IN ('PART');
+
+-- Disable InMemory of a table
+ALTER TABLE nombre_tabla NO INMEMORY;
+
+ALTER TABLE PARTSUPP NO INMEMORY PRIORITY CRITICAL;
+
+---------------------------------------------------------------------------
+------------------------------------------------------------------------END
+
+
+
+--------------------------------------------------------------------------------
+----------------------- Query optimization TPC-H--------------------------------
+----------------------- Query optimization TPC-H--------------------------------
+----------------------- Query optimization TPC-H--------------------------------
+--------------------------------------------------------------------------------
+
+------------------------------------------------------------
+------------------------------------------------------------
+Pricing Summary Report Query (Q1)
+This query reports the amount of business that was billed, shipped, and returned.
+
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+
+----
+CREATE MATERIALIZED VIEW q1PricingSummaryReport
+  BUILD IMMEDIATE
+  REFRESH COMPLETE ON DEMAND
+  ENABLE QUERY REWRITE
+AS 
+select
+l_returnflag,
+l_linestatus,
+sum(l_quantity) as sum_qty,
+sum(l_extendedprice) as sum_base_price,
+sum(l_extendedprice*(1-l_discount)) as sum_disc_price,
+sum(l_extendedprice*(1-l_discount)*(1+l_tax)) as sum_charge,
+avg(l_quantity) as avg_qty,
+avg(l_extendedprice) as avg_price,
+avg(l_discount) as avg_disc,
+count(*) as count_order
+from
+lineitem
+where
+l_shipdate <= date '1998-09-02'
+group by
+l_returnflag,
+l_linestatus
+order by
+l_returnflag,
+l_linestatus;
+
+SELECT * FROM USER_MVIEWS WHERE MVIEW_NAME = 'Q1PRICINGSUMMARYREPORT';
+
+SELECT * FROM Q1PRICINGSUMMARYREPORT;
+
+
+-- Actualizar:
+BEGIN
+   DBMS_MVIEW.REFRESH('Q1PRICINGSUMMARYREPORT', 'complete');
+END;
+/
+
+select date '1998-12-01' - interval '90' day (3) as fecha from dual;
+02-SEP-98 ----> '1998-09-02'
+----
+4 rows selected
+Elapsed: 00:00:55.69
+Elapsed: 00:00:00.06
+
+------------------------------------------------------------
+------------------------------------------------------------
+Minimum Cost Supplier Query (Q2)
+This query finds which supplier should be selected to place an order for a given part in a given region
+
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+
+----
+
+EXPLAIN PLAN FOR
+select
+s_acctbal,
+s_name,
+n_name,
+p_partkey,
+p_mfgr,
+s_address,
+s_phone,
+s_comment
+from
+part,
+supplier,
+partsupp,
+nation,
+region
+where
+p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and p_size = 45
+and p_type like '%BRASS%'
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'EUROPE'
+and ps_supplycost = (
+select 
+min(ps_supplycost)
+from
+partsupp, supplier,
+nation, region
+where
+p_partkey = ps_partkey
+and s_suppkey = ps_suppkey
+and s_nationkey = n_nationkey
+and n_regionkey = r_regionkey
+and r_name = 'EUROPE'
+)
+order by
+s_acctbal desc,
+n_name,
+s_name,
+p_partkey;
+
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+---
+13956 rows selected.
+Elapsed: 00:00:08.71
+Elapsed: 00:00:02.81
+------------------------------------------------------------
+------------------------------------------------------------
+Shipping Priority Query (Q3)
+This query retrieves the 10 unshipped orders with the highest value.
+----
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+
+----
+
+EXPLAIN PLAN FOR
+select
+l.l_orderkey,
+sum(l.l_extendedprice*(1-l.l_discount)) as revenue,
+o.o_orderdate,
+o.o_shippriority
+from
+customer c
+JOIN orders o ON c.c_custkey = o.o_custkey
+JOIN lineitem l ON l.l_orderkey = o.o_orderkey
+where
+c.c_mktsegment = 'BUILDING'
+and o.o_orderdate < date '1995-03-15'
+and l.l_shipdate > date '1995-03-15'
+group by
+l.l_orderkey,
+o.o_orderdate,
+o.o_shippriority
+order by
+revenue desc,
+o.o_orderdate;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+---
+339695 rows selected.
+Elapsed: 00:00:42.06
+Elapsed: 00:00:22.56
+------------------------------------------------------------
+------------------------------------------------------------
+Order Priority Checking Query (Q4)
+This query determines how well the order priority system is working and gives an assessment of customer satisfaction.
+----
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+
+EXPLAIN PLAN FOR
+select * from TABLE(DBMS_XPLAN.DISPLAY);
+----
+
+CREATE TABLE q4result AS
+SELECT
+o.o_orderpriority,
+count(DISTINCT o.o_orderkey) AS order_count
+FROM
+orders o
+JOIN lineitem l ON l.l_orderkey = o.o_orderkey
+AND l.l_commitdate < l.l_receiptdate
+WHERE
+o.o_orderdate >= date '1993-07-01'
+and o.o_orderdate < date '1993-10-01'
+group by
+o.o_orderpriority
+order by
+o.o_orderpriority;
+
+select * from q4result;
+
+
+
+select date '1993-07-01' + interval '3' month as fechafc from dual;
+01-OCT-93
+---
+5 rows selected.
+Elapsed: 00:00:27.04
+Elapsed: 00:00:00.02
+------------------------------------------------------------
+------------------------------------------------------------
+Local Supplier Volume Query (Q5)
+This query lists the revenue volume done through local suppliers.
+----
+
+select
+n.n_name,
+sum(l.l_extendedprice * (1 - l.l_discount)) as revenue
+from
+customer c
+JOIN orders o ON c.c_custkey = o.o_custkey
+JOIN lineitem l ON l.l_orderkey = o.o_orderkey
+JOIN supplier s ON l.l_suppkey = s.s_suppkey
+JOIN nation n ON s.s_nationkey = n.n_nationkey
+JOIN region r ON n.n_regionkey = r.r_regionkey
+where
+c.c_nationkey = s.s_nationkey
+and r.r_name = 'ASIA'
+and o.o_orderdate >= date '1994-01-01'
+and o.o_orderdate < date '1994-01-01' + interval '1' year
+group by
+n.n_name
+order by
+revenue desc;
+
+---
+5 rows selected.
+Elapsed: 00:01:05.13
+Elapsed: 00:00:27.43
+------------------------------------------------------------
+------------------------------------------------------------
+Forecasting Revenue Change Query (Q6)
+This query quantifies the amount of revenue increase that would have resulted from eliminating certain companywide discounts in a given percentage range in a given year. Asking this type of "what if" query can be used to look for ways to increase revenues.
+----
+CREATE GLOBAL TEMPORARY TABLE forecasting_revenue(
+    revenue number
+);
+
+insert into forecasting_revenue
+select
+sum(l_extendedprice*l_discount) as revenue
+from
+lineitem
+where
+l_shipdate >= date '1994-01-01'
+and l_shipdate < date '1995-01-01'
+and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+and l_quantity < 24;
+
+CREATE GLOBAL TEMPORARY TABLE forecasting_revenue34
+
+
+/*Crear tabla temporal para hacer mas legible la query*/
+with forecasting_revenue35 AS (
+select
+sum(l_extendedprice*l_discount) as revenue
+from
+lineitem
+where
+l_shipdate >= date '1994-01-01'
+and l_shipdate < date '1995-01-01'
+and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+and l_quantity < 24
+)
+select * from forecasting_revenue35;
+
+select date '1994-01-01' + interval '1' year from dual;
+---------
+01-JAN-95
+
+select * from forecasting_revenue;
+---
+1 row selected.
+Elapsed: 00:00:19.97
+Elapsed: 00:00:00.01
+------------------------------------------------------------
+------------------------------------------------------------
+Volume Shipping Query (Q7)
+This query determines the value of goods shipped between certain nations to help in the re-negotiation of shipping
+contracts.
+----
+
+SUPP_NATION		  CUST_NATION			L_YEAR	  REVENUE
+------------------------- ------------------------- ---------- ----------
+FRANCE			  GERMANY			  1995 1577368009
+
+
+CREATE GLOBAL TEMPORARY TABLE volume_shipping(
+    supp_nation VARCHAR2(40),
+    cust_nation VARCHAR2(40),
+    l_year NUMBER,
+    revenue NUMBER
+);
+
+insert into volume_shipping
+select
+supp_nation,
+cust_nation,
+l_year, sum(volume) as revenue
+from (
+select
+n1.n_name as supp_nation,
+n2.n_name as cust_nation,
+extract(year from l_shipdate) as l_year,
+l_extendedprice * (1 - l_discount) as volume
+from
+supplier,
+lineitem,
+orders,
+customer,
+nation n1,
+nation n2
+where
+s_suppkey = l_suppkey
+and o_orderkey = l_orderkey
+and c_custkey = o_custkey
+and s_nationkey = n1.n_nationkey
+and c_nationkey = n2.n_nationkey
+and (
+(n1.n_name = 'FRANCE' and n2.n_name = 'GERMANY')
+or (n1.n_name = 'GERMANY' and n2.n_name = 'FRANCE')
+)
+and l_shipdate between date '1995-01-01' and date '1996-12-31') shipping
+group by
+supp_nation,
+cust_nation,
+l_year
+order by
+supp_nation,
+cust_nation,
+l_year;
+
+select * from volume_shipping;
+---
+4 rows selected.
+Elapsed: 00:00:34.08
+Elapsed: 00:00:00.02
+------------------------------------------------------------
+------------------------------------------------------------
+National Market Share Query (Q8)
+This query determines how the market share of a given nation within a given region has changed over two years for
+a given part type.
+----
+
+CREATE GLOBAL TEMPORARY TABLE national_market_share(
+    o_year number(4),
+    mkt_share number(10,4)
+);
+
+insert into national_market_share
+select
+o_year,
+sum(case
+when nation = 'BRAZIL'
+then volume
+else 0
+end) / sum(volume) as mkt_share
+from (
+select
+extract(year from o_orderdate) as o_year,
+l_extendedprice * (1-l_discount) as volume,
+n2.n_name as nation
+from
+part,
+supplier,
+lineitem,
+orders,
+customer,
+nation n1,
+nation n2,
+region
+where
+p_partkey = l_partkey
+and s_suppkey = l_suppkey
+and l_orderkey = o_orderkey
+and o_custkey = c_custkey
+and c_nationkey = n1.n_nationkey
+and n1.n_regionkey = r_regionkey
+and r_name = 'AMERICA'
+and s_nationkey = n2.n_nationkey
+and o_orderdate between date '1995-01-01' and date '1996-12-31'
+and p_type = 'ECONOMY ANODIZED STEEL'
+) all_nations
+group by
+o_year
+order by
+o_year;
+
+
+select * from national_market_share;
+
+---
+2 rows selected.
+Elapsed: 00:00:29.35
+Elapsed: 00:00:00.02
+
+------------------------------------------------------------
+------------------------------------------------------------
+Product Type Profit Measure Query (Q9)
+This query determines how much profit is made on a given line of parts, broken out by supplier nation and year.
+----
+
+select
+nation,
+o_year,
+sum(amount) as sum_profit
+from (
+select
+n_name as nation,
+extract(year from o_orderdate) as o_year,
+l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity as amount
+from
+part,
+supplier,
+lineitem,
+partsupp,
+orders,
+nation
+where
+s_suppkey = l_suppkey
+and ps_suppkey = l_suppkey
+and ps_partkey = l_partkey
+and p_partkey = l_partkey
+and o_orderkey = l_orderkey
+and s_nationkey = n_nationkey
+and p_name like '%green%'
+) profit
+group by
+nation,
+o_year
+order by
+nation,
+o_year desc;
+
+---
+175 rows selected.
+Elapsed: 00:00:58.87
+Elapsed: 00:00:35.55
+------------------------------------------------------------
+------------------------------------------------------------
+Returned Item Reporting Query (Q10)
+The query identifies customers who might be having problems with the parts that are shipped to them.
+----
+
+CREATE MATERIALIZED VIEW Q10RETURNEDITEM
+  BUILD IMMEDIATE
+  REFRESH COMPLETE ON DEMAND
+  ENABLE QUERY REWRITE
+AS 
+select
+c_custkey,
+c_name,
+sum(l_extendedprice * (1 - l_discount)) as revenue,
+c_acctbal,
+n_name,
+c_address,
+c_phone,
+c_comment
+from
+customer,
+orders,
+lineitem,
+nation
+where
+c_custkey = o_custkey
+and l_orderkey = o_orderkey
+and o_orderdate >= date '1993-10-01'
+and o_orderdate < date '1993-10-01' + interval '3' month
+and l_returnflag = 'R'
+and c_nationkey = n_nationkey
+group by
+c_custkey,
+c_name,
+c_acctbal,
+c_phone,
+n_name,
+c_address,
+c_comment
+order by
+revenue desc;
+
+---
+
+SELECT * FROM USER_MVIEWS WHERE MVIEW_NAME = 'Q10RETURNEDITEM';
+
+SELECT * FROM Q10RETURNEDITEM;
+
+
+-- Actualizar:
+BEGIN
+   DBMS_MVIEW.REFRESH('Q10RETURNEDITEM', 'complete');
+END;
+/
+---
+1148325 rows selected.
+Elapsed: 00:01:59.05
+Elapsed: 00:01:06.44
+------------------------------------------------------------
+------------------------------------------------------------
+Important Stock Identification Query (Q11)
+This query finds the most important subset of suppliers stock in a given nation.
+----
+
+select
+ps_partkey,
+sum(ps_supplycost * ps_availqty) as value
+from
+partsupp,
+supplier,
+nation
+where
+ps_suppkey = s_suppkey
+and s_nationkey = n_nationkey
+and n_name = 'GERMANY'
+group by
+ps_partkey having
+sum(ps_supplycost * ps_availqty) > (
+select
+sum(ps_supplycost * ps_availqty) * 0.000001
+from
+partsupp,
+supplier,
+nation
+where
+ps_suppkey = s_suppkey
+and s_nationkey = n_nationkey
+and n_name = 'GERMANY'
+)
+order by
+value desc;
+
+---
+397125 rows selected.
+Elapsed: 00:00:08.29
+Elapsed: 00:00:04.28
+
+------------------------------------------------------------
+------------------------------------------------------------
+Shipping Modes and Order Priority Query (Q12)
+This query determines whether selecting less expensive modes of shipping is negatively affecting the critical-priority orders by causing more parts to be received by customers after the committed date.
+----
+L_SHIPMODE HIGH_LINE_COUNT LOW_LINE_COUNT
+---------- --------------- --------------
+MAIL		    186309	   279694
+
+
+CREATE GLOBAL TEMPORARY TABLE shipping_modes_order(
+    l_shipmode VARCHAR2(20),
+    high_line_count number(10),
+    low_line_count number(10)
+);
+
+insert into shipping_modes_order
+select
+l_shipmode,
+sum(case
+when o_orderpriority ='1-URGENT'
+or o_orderpriority ='2-HIGH'
+then 1
+else 0
+end) as high_line_count,
+sum(case
+when o_orderpriority <> '1-URGENT'
+and o_orderpriority <> '2-HIGH'
+then 1
+else 0
+end) as low_line_count
+from
+orders,
+lineitem
+where
+o_orderkey = l_orderkey
+and l_shipmode in ('MAIL', 'SHIP')
+and l_commitdate < l_receiptdate
+and l_shipdate < l_commitdate
+and l_receiptdate >= date '1994-01-01'
+and l_receiptdate < date '1994-01-01' + interval '1' year
+group by
+l_shipmode
+order by
+l_shipmode;
+
+select * from shipping_modes_order;
+
+---
+2 rows selected.
+Elapsed: 00:00:26.58
+Elapsed: 00:00:00.01
+------------------------------------------------------------
+------------------------------------------------------------
+Customer Distribution Query (Q13)
+This query seeks relationships between customers and the size of their orders.
+----
+
+select
+c_count, count(*) as custdist
+from (
+select
+c_custkey,
+count(o_orderkey) as c_count
+from
+customer left outer join orders on
+c_custkey = o_custkey
+and o_comment not like '%special%requests%'
+group by
+c_custkey
+) c_orders 
+group by
+c_count
+order by
+custdist desc,
+c_count desc;
+
+---
+45 rows selected.
+Elapsed: 00:00:27.85
+Elapsed: 00:00:07.49
+------------------------------------------------------------
+------------------------------------------------------------
+Promotion Effect Query (Q14)
+This query monitors the market response to a promotion such as TV advertisements or a special campaign.
+----
+CREATE GLOBAL TEMPORARY TABLE promotion_effect(
+    promo_revenue number
+);
+
+insert into promotion_effect
+select
+100.00 * sum(case
+when p_type like 'PROMO%'
+then l_extendedprice*(1-l_discount)
+else 0
+end) / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
+from
+lineitem,
+part
+where
+l_partkey = p_partkey
+and l_shipdate >= date '1995-09-01'
+and l_shipdate < date '1995-09-01' + interval '1' month;
+
+select *  from promotion_effect;
+
+---
+1 row selected
+Elapsed: 00:00:22.38
+Elapsed: 00:00:00.01
+------------------------------------------------------------
+------------------------------------------------------------
+Top Supplier Query (Q15)
+This query determines the top supplier so it can be rewarded, given more business, or identified for special recognition.
+----
+
+CREATE MATERIALIZED VIEW revenue_summary 
+  BUILD IMMEDIATE
+  REFRESH COMPLETE ON DEMAND
+  ENABLE QUERY REWRITE
+  AS
+SELECT
+    l_suppkey AS supplier_no,
+    SUM(l_extendedprice * (1 - l_discount)) AS total_revenue
+FROM
+    lineitem
+WHERE
+    l_shipdate >= DATE '1996-01-01'
+    AND l_shipdate < DATE '1996-01-01' + INTERVAL '3' MONTH
+GROUP BY
+    l_suppkey;
+
+SELECT
+    s.s_suppkey,
+    s.s_name,
+    s.s_address,
+    s.s_phone,
+    r.total_revenue
+FROM
+    supplier s
+JOIN
+    revenue_summary r ON s.s_suppkey = r.supplier_no
+WHERE
+    r.total_revenue = (
+        SELECT MAX(total_revenue)
+        FROM revenue_summary
+    )
+ORDER BY
+    s.s_suppkey;
+
+
+select * from revenue_summary;
+drop materialized view revenue_summary;
+
+---
+300000 rows selected.
+Elapsed: 00:00:21.62
+Elapsed: 00:00:02.72
+------------------------------------------------------------
+------------------------------------------------------------
+Parts/Supplier Relationship Query (Q16)
+This query finds out how many suppliers can supply parts with given attributes. It might be used, for example, to
+determine whether there is a sufficient number of suppliers for heavily ordered parts.
+
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+---
+
+select
+p_brand,
+p_type,
+p_size,
+count(distinct ps_suppkey) as supplier_cnt
+from
+partsupp,
+part
+where
+p_partkey = ps_partkey
+and p_brand <> 'Brand#45'
+and p_type not like 'MEDIUM POLISHED%'
+and p_size in (49, 14, 23, 45, 19, 3, 36, 9)
+and ps_suppkey not in (
+select
+s_suppkey
+from
+supplier
+where
+s_comment like '%Customer%Complaints%'
+)
+group by
+p_brand,
+p_type,
+p_size
+order by
+supplier_cnt desc,
+p_brand,
+p_type,
+p_size;
+
+---
+27840 rows selected.
+Elapsed: 00:00:07.36
+Elapsed: 00:00:03.45
+
+------------------------------------------------------------
+------------------------------------------------------------
+Small-Quantity-Order Revenue Query (Q17)
+This query determines how much average yearly revenue would be lost if orders were no longer filled for small
+quantities of certain parts. This may reduce overhead expenses by concentrating sales on larger shipments.
+---
+
+EXPLAIN PLAN FOR
+select
+sum(l.l_extendedprice) / 7.0 as avg_yearly
+from
+lineitem l
+JOIN part p ON p.p_partkey = l.l_partkey
+where
+p.p_brand = 'Brand#23'
+and p.p_container = 'MED BOX'
+and l.l_quantity < (
+select
+0.2 * avg(lnt.l_quantity)
+from
+lineitem lnt
+where
+lnt.l_partkey = p.p_partkey
+);
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+---
+1 row selected.
+Elapsed: 00:00:19.30
+Elapsed: 00:00:07.01
+------------------------------------------------------------
+------------------------------------------------------------
+Large Volume Customer Query (Q18)
+The Large Volume Customer Query ranks customers based on their having placed a large quantity order. Large
+quantity orders are defined as those orders whose total quantity is above a certain level.
+---
+CREATE MATERIALIZED VIEW larger_volume_customer
+  BUILD IMMEDIATE
+  REFRESH COMPLETE ON DEMAND
+  ENABLE QUERY REWRITE
+  AS
+select
+c_name,
+c_custkey,
+o_orderkey,
+o_orderdate,
+o_totalprice,
+sum(l_quantity) as total_l_quantity
+from
+customer,
+orders,
+lineitem
+where
+o_orderkey in (
+select
+l_orderkey
+from
+lineitem
+group by
+l_orderkey having
+sum(l_quantity) > 300
+)
+and c_custkey = o_custkey
+and o_orderkey = l_orderkey
+group by
+c_name,
+c_custkey,
+o_orderkey,
+o_orderdate,
+o_totalprice
+order by
+o_totalprice desc,
+o_orderdate;
+
+select * from larger_volume_customer;
+
+---
+1917 rows selected.
+Elapsed: 00:01:36.71
+Elapsed: 00:00:00.09
+------------------------------------------------------------
+------------------------------------------------------------
+Discounted Revenue Query (Q19)
+The Discounted Revenue Query reports the gross discounted revenue attributed to the sale of selected parts handled
+in a particular manner. This query is an example of code such as might be produced programmatically by a data
+mining tool.
+---
+
+SELECT
+    SUM(l_extendedprice * (1 - l_discount)) AS revenue
+FROM
+    lineitem,
+    part
+WHERE
+    (
+        p_partkey = l_partkey
+        AND p_brand = 'Brand#12'
+        AND p_container IN ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
+        AND l_quantity >= 1 AND l_quantity <= 1 + 10
+        AND p_size BETWEEN 1 AND 5
+        AND l_shipmode IN ('AIR', 'AIR REG')
+        AND l_shipinstruct = 'DELIVER IN PERSON'
+    )
+    OR
+    (
+        p_partkey = l_partkey
+        AND p_brand = 'Brand#23'
+        AND p_container IN ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')
+        AND l_quantity >= 10 AND l_quantity <= 10 + 10
+        AND p_size BETWEEN 1 AND 10
+        AND l_shipmode IN ('AIR', 'AIR REG')
+        AND l_shipinstruct = 'DELIVER IN PERSON'
+    )
+    OR
+    (
+        p_partkey = l_partkey
+        AND p_brand = 'Brand#34'
+        AND p_container IN ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')
+        AND l_quantity >= 20 AND l_quantity <= 20 + 10
+        AND p_size BETWEEN 1 AND 15
+        AND l_shipmode IN ('AIR', 'AIR REG')
+        AND l_shipinstruct = 'DELIVER IN PERSON'
+    );
+
+
+---
+1 row selected.
+Elapsed: 00:00:24.98
+Elapsed: 00:00:11.57
+------------------------------------------------------------
+------------------------------------------------------------
+Potential Part Promotion Query (Q20)
+The Potential Part Promotion Query identifies suppliers in a particular nation having selected parts that may be candidates for a promotional offer.
+---
+
+SELECT
+    s_name,
+    s_address
+FROM
+    supplier,
+    nation
+WHERE
+    s_suppkey IN (
+        SELECT
+            ps_suppkey
+        FROM
+            partsupp
+        WHERE
+            ps_partkey IN (
+                SELECT
+                    p_partkey
+                FROM
+                    part
+                WHERE
+                    p_name LIKE 'forest%'
+            )
+            AND ps_availqty > (
+                SELECT
+                    0.5 * SUM(l_quantity)
+                FROM
+                    lineitem
+                WHERE
+                    l_partkey = ps_partkey
+                    AND l_suppkey = ps_suppkey
+                    AND l_shipdate >= DATE '1994-01-01'
+                    AND l_shipdate < DATE '1995-01-01'
+            )
+    )
+    AND s_nationkey = n_nationkey
+    AND n_name = 'CANADA'
+ORDER BY
+    s_name;
+
+select * from potential_part_promotion;
+
+---
+5404 rows selected.
+Elapsed: 00:00:32.22
+Elapsed: 00:00:18.32
+
+------------------------------------------------------------
+------------------------------------------------------------
+Suppliers Who Kept Orders Waiting Query (Q21)
+This query identifies certain suppliers who were not able to ship required parts in a timely manner.
+---
+CREATE MATERIALIZED VIEW kept_orders_waiting
+  BUILD IMMEDIATE
+  REFRESH COMPLETE ON DEMAND
+  ENABLE QUERY REWRITE
+  AS
+select
+s_name,
+count(*) as numwait
+from
+supplier,
+lineitem l1,
+orders,
+nation
+where
+s_suppkey = l1.l_suppkey
+and o_orderkey = l1.l_orderkey
+and o_orderstatus = 'F'
+and l1.l_receiptdate > l1.l_commitdate
+and exists (
+select
+*
+from
+lineitem l2
+where
+l2.l_orderkey = l1.l_orderkey
+and l2.l_suppkey <> l1.l_suppkey
+)
+and not exists (
+select
+*
+from
+lineitem l3
+where
+l3.l_orderkey = l1.l_orderkey
+and l3.l_suppkey <> l1.l_suppkey
+and l3.l_receiptdate > l3.l_commitdate
+)
+and s_nationkey = n_nationkey
+and n_name = 'SAUDI ARABIA'
+group by
+s_name
+order by
+numwait desc,
+s_name;
+
+select * from kept_orders_waiting;
+
+---
+11957 rows selected.
+Elapsed: 00:01:14.63
+Elapsed: 00:00:00.13
+
+------------------------------------------------------------
+------------------------------------------------------------
+Global Sales Opportunity Query (Q22)
+The Global Sales Opportunity Query identifies geographies where there are customers who may be likely to make a
+purchase
+---
+
+SELECT 
+    cntrycode, 
+    COUNT(*) AS numcust, 
+    SUM(c_acctbal) AS totacctbal 
+FROM (
+    SELECT 
+        SUBSTR(c_phone, 1, 2) AS cntrycode, 
+        c_acctbal,
+        c_custkey
+    FROM 
+        customer 
+    WHERE 
+        SUBSTR(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17')
+        AND c_acctbal > (
+            SELECT AVG(c_acctbal) 
+            FROM customer 
+            WHERE 
+                c_acctbal > 0.00 
+                AND SUBSTR(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17')
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM orders 
+            WHERE o_custkey = c_custkey
+        )
+)
+GROUP BY 
+    cntrycode 
+ORDER BY 
+    cntrycode;
+
+---
+7 rows selected.
+Elapsed: 00:00:06.54
+Elapsed: 00:00:01.15
+---
+-------------------------------------------------------------------
+-------------------------------------------------------------------
+-------------------------------------------------------------------
+
+
+
+
+------------------------------ CLEAR CACHE---------------------------------------------
+
+Limpia el buffer cache es una parte de la memoria que almacena bloques de datos leídos desde el disco.
+alter system flush buffer_cache; 
+---
+limpia shared pool es una parte de la memoria donde se almacenan los objetos de SQL, los resultados de las consultas y otros componentes
+alter system flush shared_pool;
+
+alter system flush buffer_cache; 
+alter system flush shared_pool;
+

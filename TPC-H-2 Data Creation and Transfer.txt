@@ -1,0 +1,416 @@
+---------------------------------------------------
+CREATE 30G OF DATA 
+---------------------------------------------------
+
+ CD3D9464-6141-4A68-A950-BAB23F35B527-TPC-H-Tool.zip
+
+  sudo dnf install -y gcc
+  gcc --version
+
+  sudo dnf install -y make glibc-devel
+
+---------------------------------------------------
+
+  sudo mkdir /home/tpch_tool
+  sudo unzip /home/rafael/Downloads/34236662-896C-4CBC-BE13-E7597296876A-TPC-H-Tool.zip -d /home/tpch_tool/
+
+  sudo chown -R oracle:oinstall /home/tpch_tool
+
+
+  cd /home/tpch_tool/'TPC-H V3.0.1'/dbgen
+
+  sudo vim makefile.suite
+
+set up
+
+	CC = gcc
+	DATABASE= ORACLE
+	MACHINE = LINUX
+	WORKLOAD = TPCH
+
+  sudo make -f makefile.suite
+
+  ./dbgen -s 30
+
+view process in another terminal: watch -n 2 ls -lh *.tbl
+
+  sudo mkdir -p /home/tpch_tool/DbData
+  sudo mv *.tbl /home/tpch_tool/DbData/
+
+  sudo mv /home/tpch_tool/DbData /home/oracle/
+  sudo chown -R oracle:oinstall /home/oracle/DbData
+-------------
+oracle user: 
+-------------
+  cd /home/oracle/DbData
+  ll
+
+
+------------------------------------ Check the space in the tablespace ------------------------
+
+  SELECT tablespace_name, file_name, bytes/1024/1024 AS MB FROM dba_data_files WHERE tablespace_name = 'DATA_RF';
+
+------------------------------------ View user tables ------------------------
+
+  SELECT table_name FROM all_tables WHERE owner = 'GHOST';
+
+
+-------------------------------------------------------------------------------------------------------------------------
+---- Loading data into the schema ---- Oracle External Table ---- Loading data into the schema ---- Oracle External Table|
+-------------------------------------------------------------------------------------------------------------------------
+  sqlplus / as sysdba
+  startup;
+
+  SHOW CON_NAME;
+  SELECT name, open_mode FROM v$pdbs;
+  ALTER PLUGGABLE DATABASE PDB1 OPEN READ WRITE;
+
+  SELECT name, open_mode FROM v$pdbs;
+  ALTER SESSION SET CONTAINER=PDB1;
+  SHOW CON_NAME;
+
+exit
+
+  lsnrctl start
+  sqlplus ghost/ghost@localhost:1521/pdb1
+
+1. To create directory
+
+  CREATE OR REPLACE DIRECTORY data_dir AS '/home/oracle/DbData';
+
+2. To give privileges for read, write on a directory
+
+  GRANT READ, WRITE ON DIRECTORY data_dir TO ghost;
+  SELECT * FROM ALL_DIRECTORIES WHERE DIRECTORY_NAME = 'DATA_DIR';
+
+
+-----------------------------------------------------------------
+----------- Transfer of external data to the database -----------
+-----------------------------------------------------------------
+
+
+CREATE TABLE REGION_EXTERNAL (
+    R_REGIONKEY  NUMBER(10),
+    R_NAME       CHAR(25),
+    R_COMMENT    VARCHAR2(152)
+)
+ORGANIZATION EXTERNAL (
+    TYPE ORACLE_LOADER
+    DEFAULT DIRECTORY DATA_DIR
+    ACCESS PARAMETERS (
+        RECORDS DELIMITED BY NEWLINE
+        FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"' 
+        MISSING FIELD VALUES ARE NULL
+        LRTRIM
+        (R_REGIONKEY, R_NAME, R_COMMENT CHAR(152))
+    )
+    LOCATION ('region.tbl')
+)
+REJECT LIMIT UNLIMITED;
+
+
+SELECT * FROM REGION_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+--------------
+
+CREATE TABLE NATION_EXTERNAL (
+    N_NATIONKEY NUMBER(10),
+    N_NAME CHAR(25),
+    N_REGIONKEY NUMBER(10),
+    N_COMMENT VARCHAR2(152)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT)
+     )
+   LOCATION ('nation.tbl')
+  );
+
+SELECT * FROM NATION_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+--------------
+
+CREATE TABLE SUPPLIER_EXTERNAL (
+    S_SUPPKEY NUMBER(10),
+    S_NAME CHAR(25),
+    S_ADDRESS VARCHAR2(40),
+    S_NATIONKEY NUMBER(10),
+    S_PHONE CHAR(15),
+    S_ACCTBAL NUMBER(12,2),
+    S_COMMENT VARCHAR2(101)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY, S_PHONE, S_ACCTBAL, S_COMMENT)
+     )
+   LOCATION ('supplier.tbl')
+  );
+
+
+SELECT * FROM SUPPLIER_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+---------------
+
+CREATE TABLE PART_EXTERNAL (
+    P_PARTKEY NUMBER(10),
+    P_NAME VARCHAR2(55),
+    P_MFGR CHAR(25),
+    P_BRAND CHAR(10),
+    P_TYPE VARCHAR2(25),
+    P_SIZE NUMBER(10),
+    P_CONTAINER CHAR(10),
+    P_RETAILPRICE NUMBER(12,2),
+    P_COMMENT VARCHAR2(23)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (P_PARTKEY, P_NAME, P_MFGR, P_BRAND, P_TYPE, P_SIZE, P_CONTAINER, P_RETAILPRICE, P_COMMENT)
+     )
+   LOCATION ('part.tbl')
+  );
+
+SELECT * FROM PART_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+---------------
+
+CREATE TABLE CUSTOMER_EXTERNAL (
+    C_CUSTKEY NUMBER(10),
+    C_NAME VARCHAR2(25),
+    C_ADDRESS VARCHAR2(40),
+    C_NATIONKEY NUMBER(10),
+    C_PHONE CHAR(15),
+    C_ACCTBAL NUMBER(12,2),
+    C_MKTSEGMENT CHAR(10),
+    C_COMMENT VARCHAR2(117)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (C_CUSTKEY, C_NAME, C_ADDRESS, C_NATIONKEY, C_PHONE, C_ACCTBAL, C_MKTSEGMENT, C_COMMENT)
+     )
+   LOCATION ('customer.tbl')
+  );
+
+SELECT * FROM CUSTOMER_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+---------------
+
+CREATE TABLE PARTSUPP_EXTERNAL (
+    PS_PARTKEY NUMBER(10),
+    PS_SUPPKEY NUMBER(10),
+    PS_AVAILQTY NUMBER(10),
+    PS_SUPPLYCOST NUMBER(12,2),
+    PS_COMMENT VARCHAR2(199)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY, PS_SUPPLYCOST, PS_COMMENT)
+     )
+   LOCATION ('partsupp.tbl')
+  );
+
+SELECT * FROM PARTSUPP_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+---------------
+
+
+CREATE TABLE ORDERS_EXTERNAL (
+    O_ORDERKEY NUMBER(10),
+    O_CUSTKEY NUMBER(10),
+    O_ORDERSTATUS CHAR(1),
+    O_TOTALPRICE NUMBER(12,2),
+    O_ORDERDATE DATE,  
+    O_ORDERPRIORITY CHAR(15),
+    O_CLERK CHAR(15),
+    O_SHIPPRIORITY NUMBER(10),
+    O_COMMENT VARCHAR2(79)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (O_ORDERKEY, O_CUSTKEY, O_ORDERSTATUS, O_TOTALPRICE,
+       O_ORDERDATE CHAR(10) DATE_FORMAT DATE MASK "YYYY-MM-DD", 
+       O_ORDERPRIORITY, O_CLERK, O_SHIPPRIORITY,
+       O_COMMENT)
+     )
+   LOCATION ('orders.tbl')
+  )
+REJECT LIMIT UNLIMITED;
+
+SELECT * FROM ORDERS_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+-------------------
+
+CREATE TABLE LINEITEM_EXTERNAL (
+    L_ORDERKEY NUMBER(10),
+    L_PARTKEY NUMBER(10),
+    L_SUPPKEY NUMBER(10),
+    L_LINENUMBER NUMBER(10),
+    L_QUANTITY NUMBER(12,2),
+    L_EXTENDEDPRICE NUMBER(12,2),
+    L_DISCOUNT NUMBER(12,2),
+    L_TAX NUMBER(12,2),
+    L_RETURNFLAG CHAR(1),
+    L_LINESTATUS CHAR(1),
+    L_SHIPDATE DATE,      
+    L_COMMITDATE DATE,    
+    L_RECEIPTDATE DATE,  
+    L_SHIPINSTRUCT CHAR(25),
+    L_SHIPMODE CHAR(10),
+    L_COMMENT VARCHAR2(44)
+)
+ORGANIZATION EXTERNAL
+  (TYPE ORACLE_LOADER
+   DEFAULT DIRECTORY data_dir
+   ACCESS PARAMETERS
+     (RECORDS DELIMITED BY NEWLINE
+      FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+      MISSING FIELD VALUES ARE NULL
+      LRTRIM
+      (L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER, L_QUANTITY,
+       L_EXTENDEDPRICE, L_DISCOUNT, L_TAX, L_RETURNFLAG, L_LINESTATUS,
+       L_SHIPDATE CHAR(10) DATE_FORMAT DATE MASK "YYYY-MM-DD", 
+       L_COMMITDATE CHAR(10) DATE_FORMAT DATE MASK "YYYY-MM-DD", 
+       L_RECEIPTDATE CHAR(10) DATE_FORMAT DATE MASK "YYYY-MM-DD",
+       L_SHIPINSTRUCT, L_SHIPMODE, L_COMMENT)
+     )
+   LOCATION ('lineitem.tbl')
+  )
+REJECT LIMIT UNLIMITED;
+
+SELECT * FROM LINEITEM_EXTERNAL FETCH FIRST 30 ROWS ONLY;
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+------------------------------------ View user tables ------------------------
+
+SELECT table_name
+FROM all_tables
+WHERE owner = 'GHOST';
+
+
+----------------------------- load data from external tables to permanent tables -----------------------------
+commit y rollback;
+
+INSERT INTO REGION (R_REGIONKEY, R_NAME, R_COMMENT)
+SELECT R_REGIONKEY, R_NAME, R_COMMENT
+FROM REGION_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO NATION (N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT)
+SELECT N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT
+FROM NATION_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO SUPPLIER (S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY, S_PHONE, S_ACCTBAL, S_COMMENT)
+SELECT S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY, S_PHONE, S_ACCTBAL, S_COMMENT
+FROM SUPPLIER_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO PART (P_PARTKEY, P_NAME, P_MFGR, P_BRAND, P_TYPE, P_SIZE, P_CONTAINER, P_RETAILPRICE, P_COMMENT)
+SELECT P_PARTKEY, P_NAME, P_MFGR, P_BRAND, P_TYPE, P_SIZE, P_CONTAINER, P_RETAILPRICE, P_COMMENT
+FROM PART_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO CUSTOMER (C_CUSTKEY, C_NAME, C_ADDRESS, C_NATIONKEY, C_PHONE, C_ACCTBAL, C_MKTSEGMENT, C_COMMENT)
+SELECT C_CUSTKEY, C_NAME, C_ADDRESS, C_NATIONKEY, C_PHONE, C_ACCTBAL, C_MKTSEGMENT, C_COMMENT
+FROM CUSTOMER_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO PARTSUPP (PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY, PS_SUPPLYCOST, PS_COMMENT)
+SELECT PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY, PS_SUPPLYCOST, PS_COMMENT
+FROM PARTSUPP_EXTERNAL;
+
+commit;
+-------------
+
+INSERT INTO ORDERS (O_ORDERKEY, O_CUSTKEY, O_ORDERSTATUS, O_TOTALPRICE, O_ORDERDATE, 
+                    O_ORDERPRIORITY, O_CLERK, O_SHIPPRIORITY, O_COMMENT)
+SELECT O_ORDERKEY, O_CUSTKEY, O_ORDERSTATUS, O_TOTALPRICE, O_ORDERDATE, 
+       O_ORDERPRIORITY, O_CLERK, O_SHIPPRIORITY, O_COMMENT
+FROM ORDERS_EXTERNAL;
+
+
+commit;
+-------------
+
+INSERT INTO LINEITEM (L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER, L_QUANTITY,
+                      L_EXTENDEDPRICE, L_DISCOUNT, L_TAX, L_RETURNFLAG, L_LINESTATUS,
+                      L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPINSTRUCT, L_SHIPMODE, L_COMMENT)
+SELECT L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER, L_QUANTITY,
+       L_EXTENDEDPRICE, L_DISCOUNT, L_TAX, L_RETURNFLAG, L_LINESTATUS,
+       L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPINSTRUCT, L_SHIPMODE, L_COMMENT
+FROM LINEITEM_EXTERNAL;
+
+
+commit;
+-------------
+
+
+SELECT * FROM REGION;
+SELECT * FROM NATION;
+SELECT * FROM SUPPLIER;
+SELECT * FROM PART;
+SELECT * FROM CUSTOMER;
+SELECT * FROM PARTSUPP;
+SELECT * FROM LINEITEM;
+
+
+-------------------------------- DROP EXTERNAL_TABLE ---------------------------------------------------
+DROP TABLE REGION_EXTERNAL;
+DROP TABLE NATION_EXTERNAL;
+DROP TABLE SUPPLIER_EXTERNAL;
+DROP TABLE PART_EXTERNAL;
+DROP TABLE CUSTOMER_EXTERNAL;
+DROP TABLE PARTSUPP_EXTERNAL;
+DROP TABLE ORDERS_EXTERNAL;
+DROP TABLE LINEITEM_EXTERNAL;
+
+
+
+
+

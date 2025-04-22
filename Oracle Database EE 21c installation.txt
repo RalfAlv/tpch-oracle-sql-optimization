@@ -1,0 +1,257 @@
+1. Hosts File Configuration
+Edit the file
+
+     sudo vim /etc/hosts
+
+127.0.0.1       localhost localhost.localdomain localhost4 localhost4.localdomain4
+127.0.0.1       ol8-21.localdomain  ol8-21
+------
+2. Set the hostname to
+     sudo vim /etc/hostname
+
+     ol8-21.localdomain
+
+------
+3. Prerequisites
+As root user
+
+     sudo dnf install -y oracle-database-preinstall-21c
+     sudo dnf update -y
+
+Additional packages required
+
+     sudo dnf install -y bc binutils compat-openssl10 elfutils-libelf glibc glibc-devel ksh libaio libXrender libX11 libXau libXi libXtst libgcc libnsl libstdc++ libxcb libibverbs make policycoreutils policycoreutils-python-utils smartmontools sysstat unixODBC
+     sudo passwd oracle
+------
+
+4. Additional Configuration
+Configure SELinux to Permissive Mode
+
+     sudo vim /etc/selinux/config 
+     # SELINUX=permissive
+
+Disable the firewall (for local environments)
+
+     systemctl stop firewalld
+     systemctl disable firewalld
+
+Create directories for Oracle
+
+     sudo mkdir -p /u01/app/oracle/product/21.0.0/dbhome_1
+     sudo mkdir -p /u02/oradata
+     sudo chown -R oracle:oinstall /u01 /u02
+     sudo chmod -R 775 /u01 /u02
+
+------
+5. Configure the Oracle environment
+
+     sudo mkdir /home/oracle/scripts
+
+     sudo bash -c 'cat > /home/oracle/scripts/setEnv.sh <<EOF
+     # Oracle Settings
+     export TMP=/tmp
+     export TMPDIR=\$TMP
+
+     export ORACLE_HOSTNAME=ol8-21.localdomain
+     export ORACLE_UNQNAME=cdb1
+     export ORACLE_BASE=/u01/app/oracle
+     export ORACLE_HOME=\$ORACLE_BASE/product/21.0.0/dbhome_1
+     export ORA_INVENTORY=/u01/app/oraInventory
+     export ORACLE_SID=cdb1
+     export PDB_NAME=pdb1
+     export DATA_DIR=/u02/oradata
+
+     export PATH=/usr/sbin:/usr/local/bin:\$PATH
+     export PATH=\$ORACLE_HOME/bin:\$PATH
+
+     export LD_LIBRARY_PATH=\$ORACLE_HOME/lib:/lib:/usr/lib
+     export CLASSPATH=\$ORACLE_HOME/jlib:\$ORACLE_HOME/rdbms/jlib
+     EOF'
+
+sudo bash -c 'echo ". /home/oracle/scripts/setEnv.sh" >> /home/oracle/.bash_profile'
+
+sudo touch /home/oracle/scripts/start_all.sh
+sudo chmod +x /home/oracle/scripts/start_all.sh
+
+     sudo bash -c 'cat > /home/oracle/scripts/start_all.sh <<EOF
+     #!/bin/bash
+     . /home/oracle/scripts/setEnv.sh
+     export ORAENV_ASK=NO
+     . oraenv
+     export ORAENV_ASK=YES
+     dbstart \$ORACLE_HOME
+     EOF'
+
+sudo touch /home/oracle/scripts/stop_all.sh
+sudo chmod +x /home/oracle/scripts/stop_all.sh
+
+     sudo bash -c 'cat > /home/oracle/scripts/stop_all.sh <<EOF
+     #!/bin/bash
+     . /home/oracle/scripts/setEnv.sh
+     export ORAENV_ASK=NO
+     . oraenv
+     export ORAENV_ASK=YES
+     dbshut \$ORACLE_HOME
+     EOF'
+
+
+sudo chown -R oracle:oinstall /home/oracle/scripts
+
+     -----------------------
+     su - oracle
+     -----------------------
+
+sudo chmod u+x /home/oracle/scripts/*.sh
+
+cd $ORACLE_HOME/dbs
+
+# Create the parameter file
+     cat > initcdb1.ora <<EOF
+     db_name='cdb1'
+     memory_target=2G
+     control_files=('/u02/oradata/cdb1/control01.ctl', '/u02/oradata/cdb1/control02.ctl')
+     db_block_size=8192
+     compatible='21.0.0'
+     enable_pluggable_database=true
+     EOF
+
+
+Installing Oracle Database 21c
+Log in as the oracle user
+
+     su - oracle
+
+     # Unzip the software to ORACLE_HOME
+verify in oracle:
+
+     cd $ORACLE_HOME
+     pwd
+
+User ROOT: 
+
+     sudo unzip -oq /home/rafael/Downloads/LINUX.X64_213000_db_home.zip -d /u01/app/oracle/product/21.0.0/dbhome_1
+     sudo chown -R oracle:oinstall /u01/app/oracle/product/21.0.0/dbhome_1
+
+User Oracle:
+Start the installer in interactive mode
+
+     ./runInstaller
+
+During the graphical installation, follow these steps:
+Install database software only:
+
+     Set Up Software Only
+     Single Instance database installation
+     Enterprise Edition
+
+routes:
+     Oracle Base: /u01/app/oracle
+     Inventory Directory: /u01/app/oraInventory
+     Oracle Home: /u01/app/oracle/product/21.0.0/dbhome_1
+
+Specifies OS groups:
+     dba, oper, backupdba, dgdba, kmdba y racdba
+
+     root script execution: do not select anything.
+     prerequisites checks: ignored all
+
+When prompted, RUN the scripts as root:
+
+     sudo /u01/app/oraInventory/orainstRoot.sh
+     sudo /u01/app/oracle/product/21.0.0/dbhome_1/root.sh
+
+2. Creación de la base de datos
+Como usuario oracle
+su - oracle
+
+# Inicia el listener
+lsnrctl start 
+
+dbca -silent -createDatabase \
+     -templateName General_Purpose.dbc \
+     -gdbname cdb1 -sid cdb1 -responseFile NO_VALUE \
+     -characterSet AL32UTF8 \
+     -sysPassword admin \
+     -systemPassword admin \
+     -createAsContainerDatabase true \
+     -numberOfPDBs 1 \
+     -pdbName pdb1 \
+     -pdbAdminPassword admin \
+     -memoryMgmtType auto_sga \
+     -totalMemory 4000 \
+     -storageType FS \
+     -datafileDestination "/u02/oradata" \
+     -redoLogFileSize 50 \
+     -emConfiguration NONE
+
+
+     sqlplus / as sysdba <<EOF
+     alter system set db_create_file_dest='/u02/oradata';
+     alter pluggable database pdb1 save state;
+     exit;
+     EOF
+
+sqlplus / as sysdba
+startup;
+select name, open_mode from v$database;
+show pdbs;
+SQL> exit
+
+
+//////////////// HOW TO CREATED A NEW SCHEMA ////////////////
+---------------
+User Oracle:
+---------------
+     mkdir -p /u02/oradata/pdb1
+     ls -l /u02/oradata/
+---------------
+User ROOT:
+---------------
+     sudo mkdir -p /u02/oradata/pdb1
+     sudo chown -R oracle:oinstall /u02/oradata/pdb1
+     sudo chmod -R 775 /u02/oradata/pdb1
+
+---------------------------------- NEW SCHEMA 80 GB -----------------------------------------
+     sqlplus / as sysdba
+     SHOW CON_NAME;
+     SELECT name, open_mode FROM v$pdbs;
+     ALTER PLUGGABLE DATABASE PDB1 OPEN READ WRITE;
+
+     SELECT name, open_mode FROM v$pdbs;
+     ALTER SESSION SET CONTAINER=PDB1;
+     SHOW CON_NAME;
+
+**** TableSpace ******
+     CREATE BIGFILE TABLESPACE data_rf DATAFILE '/u02/oradata/pdb1/data_rf.dbf' SIZE 30G AUTOEXTEND ON NEXT 50M MAXSIZE 80G;
+
+---ALTER SIZE: ALTER DATABASE DATAFILE '/u02/oradata/pdb1/data_rf.dbf' AUTOEXTEND ON NEXT 50M MAXSIZE 100G;
+
+     SELECT tablespace_name FROM dba_tablespaces;
+
+     SELECT tablespace_name, SUM(bytes) / 1024 / 1024 AS used_mb, SUM(maxbytes) / 1024 / 1024 AS max_mb FROM dba_data_files WHERE tablespace_name = 'DATA_RF' GROUP BY tablespace_name;
+
+
+create user ghost identified by "ghost" 
+     default tablespace data_rf
+     temporary tablespace temp
+     quota unlimited on data_rf;
+
+
+GRANT DBA TO ghost;
+GRANT UNLIMITED TABLESPACE TO ghost;
+GRANT CREATE MATERIALIZED VIEW TO ghost;
+
+
+
+--------------- CONNECT: ---------------
+
+ALTER SESSION SET CURRENT_SCHEMA = ghost;
+SELECT USER FROM DUAL;
+
+
+--------------- use this: other form 
+lsnrctl start
+sqlplus ghost/ghost@localhost:1521/pdb1
+SELECT table_name FROM all_tables WHERE owner = 'GHOST';
+
+
